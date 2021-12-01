@@ -23,6 +23,8 @@ Please buy my wife a coffee to keep her happy, while I am busy developing Node-R
 
 ## Node usage
 
+CAUTION: message hooks will result in lots of extra code to be executed, so it is advised to *disable message profiling when you are not using it*!!!
+
 ### Step by step
 1. Add a msg-profiler node to a flow.
 
