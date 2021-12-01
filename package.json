@@ -12,11 +12,14 @@
     "license": "Apache-2.0",
     "keywords": [
         "node-red",
-        "svg",
-        "drawsvg",
-        "drawing",
-        "draw",
-        "editor"
+        "msg",
+        "message",
+        "profile",
+        "profiling",
+        "trace",
+        "tracing",
+        "performance",
+        "nodes"
     ],   
     "bugs": {
         "url": "https://github.com/bartbutenaers/node-red-contrib-drawsvg/issues"
