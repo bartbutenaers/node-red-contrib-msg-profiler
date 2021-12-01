@@ -15,7 +15,7 @@
         {v:"inline", t:"Inline"},
         {v:"all"   , t:"All nodes"},
         {v:"flow"  , t:"Current flow"},
-        {v:"select", t:"Select nodes"}
+        {v:"select", t:"Selected nodes"}
     ];
 
     RED.nodes.registerType('msg-time-profiler',{
@@ -246,7 +246,7 @@
         <input id="node-input-inputField" type="text" style="width: 70%">
     </div>
     <div class="form-row">
-        <label for="node-input-outputField"><i class="fa fa-list-ol"></i> History field</label>
+        <label for="node-input-outputField"><i class="fa fa-list-ol"></i> Output field</label>
         <input id="node-input-outputField" type="text" style="width: 70%">
     </div>
     <div class="form-row">
@@ -281,5 +281,22 @@
 </script>
 
 <script type="text/x-red" data-help-name="msg-time-profiler">
-
+<p>A Node-RED node to execute time profiling (and tracing) of a message through a flow.</p>
+<p>See my <a target="_blank" href="https://github.com/bartbutenaers/node-red-contrib-msg-profiler/blob/main/README.md">Github readme</a> page for more information and example flows.  Note that those example flows are also available via the Node-RED <a target="_blank" href="notused" onclick="RED.actions.invoke('core:show-import-dialog');return false;">Import dialog</a>.</p>
+<p>Since message hooks result in extra system resources being used, it is advised to disable msg profiling when you are not using it!</p>
+<p><strong>Cmd field:</strong><br/>
+Specify in which input message field the commands will be injected. The available commands are <code>start_profiling</code> and <code>stop_profiling</code>.</p>
+<p><strong>Output field:</strong><br/>
+Specify in which output message field the profiling/tracing results will be send. Currently the field will always be <code>_msgtracing</code>.</p>
+<p><strong>Autostart:</strong><br/>
+When activated, the profiling will be enabled automatically at startup.</p>   
+<p><strong>Mode:</strong><br/>
+Different profiling nodes are available, to specify which nodes can initiate message profiling:
+<ul>
+   <li><code>Inline:</code> the node gets an output and can be put inside the node chain (to start msg profiling).</li>
+   <li><code>All nodes:</code> all the nodes (in all the flows) can start msg profiling.  Note that this mode might result in performance issues!</li>
+   <li><code>Current flow:</code> all the nodes in the current flow can start msg profiling.</li>
+   <li><code>Selected nodes:</code> all the specified nodes (which are manually selected) can start msg profiling.</li>
+</ul>
+</p>
 </script>
