@@ -1,0 +1,285 @@
+<!--
+  Copyright 2021, Bart Butenaers
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+  http://www.apache.org/licenses/LICENSE-2.0
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<script type="text/javascript">
+    var msgProfileModes = [
+        {v:"inline", t:"Inline"},
+        {v:"all"   , t:"All nodes"},
+        {v:"flow"  , t:"Current flow"},
+        {v:"select", t:"Select nodes"}
+    ];
+
+    RED.nodes.registerType('msg-time-profiler',{
+        category: 'performance',
+        color: '#a6bbcf',
+        defaults: {
+            inputField: {value:"topic", validate: RED.validators.typedInput("inputFieldType")},
+            outputField: {value:"_msgtracing", validate: RED.validators.typedInput("outputFieldType")},
+            profileMode: {value:"inline"},
+            autoStart: {value:true},
+            // This variable is copied from the Catch node
+            scope: {value:null, type:"*[]"},
+            outputs: {value:1}, // Standard field that will be used by Node-Red to draw N output ports in the flow editor
+            name: {value:""}
+        },
+        inputs:1,
+        outputs:1,
+        icon: "font-awesome/fa-clock-o",
+        align: 'left',
+        label: function() {
+            return this.name || "time profiler";
+        },
+        label: function() {
+            var profileModeText = "";
+
+            // Get the profile mode text, based on the selected profile mode value
+            for (var i = 0; i < msgProfileModes.length; i++) {
+               if (msgProfileModes[i].v === this.profileMode) {
+                   profileModeText = msgProfileModes[i].t;
+                   break;
+               }
+            }
+
+            return this.name || profileModeText || "time profiler";
+        },
+        oneditprepare: function() { 
+            var node = this;
+
+            // Show the inputField value in a typedinput element (dropdown with only 'msg')
+            $("#node-input-inputFieldType").val(this.inputField);
+            $("#node-input-inputField").typedInput({
+                default: 'msg',
+                typeField: $("#node-input-inputFieldType"),
+                types:['msg']
+            });
+       
+            // Show the outputField value in a typedinput element (dropdown with only 'msg')
+            $("#node-input-outputFieldType").val(this.outputField);
+            $("#node-input-outputField").typedInput({
+                default: 'msg',
+                typeField: $("#node-input-outputFieldType"),
+                types:['msg']
+            });
+            
+            // Currently the output msg field will always be "_msgtracing", and cannot be changed.
+            // It will be displayed disabled, as a visual indication for clarification.
+            $("#node-input-outputField").typedInput('disable');
+            
+            // Fill the profile mode dropdown list dynamically with all available profile modes
+            for (var i = 0; i < msgProfileModes.length; i++) {
+                var value = msgProfileModes[i].v;
+                var text = msgProfileModes[i].t;
+                $('#node-input-profileMode').append($("<option></option>").attr("value", value).text(text));
+            }
+            
+            // Respond to changes of the profile mode
+            $("#node-input-profileMode").change(function() {
+                switch(this.value) {
+                    case "inline":
+                        $("#node-input-outputs").val(1);
+                        $(".node-input-target-row").hide();
+                        break;
+                    case "all":
+                        $("#node-input-outputs").val(0);
+                        $(".node-input-target-row").hide();
+                        break;
+                    case "flow":
+                        $("#node-input-outputs").val(0);
+                        $(".node-input-target-row").hide();
+                        break;
+                    case "select":
+                        $("#node-input-outputs").val(0);
+                        $(".node-input-target-row").show();
+                        break;
+                }                        
+            });
+            $("#node-input-profileMode").val(node.profileMode);
+
+            // ==========================================================================================================================
+            // ==========================================================================================================================
+            // From here on the code is copied from the Catch-node !!!!
+            // See https://github.com/node-red/node-red/blob/master/packages/node_modules/%40node-red/nodes/core/common/25-catch.html
+            // ==========================================================================================================================
+            // ==========================================================================================================================
+            var scope = node.scope || [];
+            this._resize = function() {
+                var rows = $("#dialog-form>div:not(.node-input-target-list-row)");
+                var height = $("#dialog-form").height();
+                for (var i=0;i<rows.length;i++) {
+                    height -= $(rows[i]).outerHeight(true);
+                }
+                var editorRow = $("#dialog-form>div.node-input-target-list-row");
+                editorRow.css("height",height+"px");
+            };
+            var search = $("#node-input-catch-target-filter").searchBox({
+                style: "compact",
+                delay: 300,
+                change: function() {
+                    var val = $(this).val().trim().toLowerCase();
+                    if (val === "") {
+                        dirList.treeList("filter", null);
+                        search.searchBox("count","");
+                    } else {
+                        var count = dirList.treeList("filter", function(item) {
+                            return item.label.toLowerCase().indexOf(val) > -1 || item.node.type.toLowerCase().indexOf(val) > -1
+                        });
+                        search.searchBox("count",count+" / "+candidateNodes.length);
+                    }
+                }
+            });
+            var dirList = $("#node-input-catch-target-container-div").css({width: "100%", height: "100%"})
+                .treeList({multi:true}).on("treelistitemmouseover", function(e, item) {
+                    item.node.highlighted = true;
+                    item.node.dirty = true;
+                    RED.view.redraw();
+                }).on("treelistitemmouseout", function(e, item) {
+                    item.node.highlighted = false;
+                    item.node.dirty = true;
+                    RED.view.redraw();
+                })
+            var candidateNodes = RED.nodes.filterNodes({z:node.z});
+            var allChecked = true;
+            var items = [];
+            var nodeItemMap = {};
+
+            candidateNodes.forEach(function(n) {
+                if (n.id === node.id) {
+                    return;
+                }
+                var isChecked = scope.indexOf(n.id) !== -1;
+
+                allChecked = allChecked && isChecked;
+
+                var nodeDef = RED.nodes.getType(n.type);
+                var label;
+                var sublabel;
+                if (nodeDef) {
+                    var l = nodeDef.label;
+                    label = (typeof l === "function" ? l.call(n) : l)||"";
+                    sublabel = n.type;
+                    if (sublabel.indexOf("subflow:") === 0) {
+                        var subflowId = sublabel.substring(8);
+                        var subflow = RED.nodes.subflow(subflowId);
+                        sublabel = "subflow : "+subflow.name;
+                    }
+                }
+                if (!nodeDef || !label) {
+                    label = n.type;
+                }
+                nodeItemMap[n.id] = {
+                    node: n,
+                    label: label,
+                    sublabel: sublabel,
+                    selected: isChecked,
+                    checkbox: true
+                };
+                items.push(nodeItemMap[n.id]);
+            });
+            dirList.treeList('data',items);
+
+            $("#node-input-catch-target-select").on("click", function(e) {
+                e.preventDefault();
+                var preselected = dirList.treeList('selected').map(function(n) {return n.node.id});
+                RED.tray.hide();
+                RED.view.selectNodes({
+                    selected: preselected,
+                    onselect: function(selection) {
+                        RED.tray.show();
+                        var newlySelected = {};
+                        selection.forEach(function(n) {
+                            newlySelected[n.id] = true;
+                            if (nodeItemMap[n.id]) {
+                                nodeItemMap[n.id].treeList.select(true);
+                            }
+                        })
+                        preselected.forEach(function(id) {
+                            if (!newlySelected[id]) {
+                                nodeItemMap[id].treeList.select(false);
+                            }
+                        })
+                    },
+                    oncancel: function() {
+                        RED.tray.show();
+                    },
+                    filter: function(n) {
+                        return n.id !== node.id;
+                    }
+                });
+            })
+            // ==========================================================================================================================
+            // ==========================================================================================================================
+            // End of the Catch node code
+            // ==========================================================================================================================
+            // ==========================================================================================================================
+        },
+        oneditsave: function() {
+            var node = this;
+
+            // This statement is also copied from the Catch node !!!
+            this.scope = $("#node-input-catch-target-container-div").treeList('selected').map(function(i) { return i.node.id})
+        },
+        oneditresize: function(size) {
+            this._resize();
+        }
+    });
+</script>
+
+<script type="text/x-red" data-template-name="msg-time-profiler">
+    <div class="form-row">
+        <label for="node-input-name"><i class="icon-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+        <!-- Hidden helper field to store easily the number of outputs -->
+        <input type="hidden" id="node-input-outputs"/>
+    </div>
+    </br>
+    <div class="form-row">
+        <label for="node-input-inputField"><i class="fa fa-terminal"></i> Cmd field</label>
+        <input id="node-input-inputField" type="text" style="width: 70%">
+    </div>
+    <div class="form-row">
+        <label for="node-input-outputField"><i class="fa fa-list-ol"></i> History field</label>
+        <input id="node-input-outputField" type="text" style="width: 70%">
+    </div>
+    <div class="form-row">
+        <label for='node-input-autoStart'><i class='fa fa-play-circle'></i> Autostart</label>
+        <input type='checkbox' id='node-input-autoStart' style='width:auto ;border:none; vertical-align:baseline;' placeholder='0'>
+        <span for='node-input-autoStart'> Automatically start tracing at startup</span>
+    </div>
+    <div class="form-row">
+        <label for="node-input-profileMode"><i class="fa fa-mouse-pointer"></i> Mode</label>
+        <select id="node-input-profileMode">
+            <!-- The select options will be filled dynamically -->
+        </select>
+    </div>   
+     <!-- ---------------------------------------------------------------------------------------------------------------------- -->
+     <!-- ---------------------------------------------------------------------------------------------------------------------- -->
+     <!--                                This html snippet is copied from the Catch node                                         -->
+     <!-- See https://github.com/node-red/node-red/blob/master/packages/node_modules/%40node-red/nodes/core/common/25-catch.html -->
+     <!-- ---------------------------------------------------------------------------------------------------------------------- -->
+     <!-- ---------------------------------------------------------------------------------------------------------------------- -->
+    <div class="form-row node-input-target-row">
+        <button id="node-input-catch-target-select" class="red-ui-button" data-i18n="common.label.selectNodes"></button>
+    </div>
+    <div class="form-row node-input-target-row node-input-target-list-row" style="position: relative; min-height: 100px">
+        <div style="position: absolute; top: -30px; right: 0;"><input type="text" id="node-input-catch-target-filter"></div>
+        <div id="node-input-catch-target-container-div"></div>
+    </div>
+     <!-- ---------------------------------------------------------------------------------------------------------------------- -->
+     <!-- ---------------------------------------------------------------------------------------------------------------------- -->
+     <!--                                               End of the catch node html                                               -->
+     <!-- ---------------------------------------------------------------------------------------------------------------------- -->
+     <!-- ---------------------------------------------------------------------------------------------------------------------- -->
+</script>
+
+<script type="text/x-red" data-help-name="msg-time-profiler">
+
+</script>
