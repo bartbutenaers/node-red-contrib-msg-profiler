@@ -21,47 +21,59 @@
         this.inputField       = config.inputField;
         this.outputField      = config.outputField;
         this.autoStart        = config.autoStart;
-        this.initiatorNodeIds = config.initiatorNodeIds;
         this.profileMode      = config.profileMode;
+        this.initiatorNodes   = new Map();
 
         var node = this;
         
+        node.initiatorNodeIds = null;
         switch(node.profileMode) {
             case "inline":
                 // In inline mode, only this node itself will initiate tracing of messages
-                this.initiatorNodeIds = [ node.id ];
+                node.initiatorNodeIds = [ node.id ];
                 break;
             case "flow":
                 // Get all the active nodes in the current flow
-                this.initiatorNodeIds = Object.keys(node._flow.activeNodes);
+                node.initiatorNodeIds = Object.keys(node._flow.activeNodes);
                 break;
             case "all":
-                // Do nothing since the number of nodes might be to much to store all their ids into an array,
-                // because searching that array will cause performance drop.  Instead we will simply accept all nodes...
+                // Keep the variable undefined
                 break;
             case "select":
                 // Copy all the node id's that have been selected via the config screen.
                 // In the frontend side, the array is called 'scope' to make sure the code from the Catch node can be copied without any modifications...
-                this.initiatorNodeIds = config.scope;
+                node.initiatorNodeIds = config.scope || [];
                 break;
         }
         
+        // Create a cache containing information about all relevant nodes (for performance).
+        // Note that we need to loop all the available nodes, since RED.node.getNode(...) does not return the node name.
+        RED.nodes.eachNode(function(someNode) {
+            if(someNode.type != "tab" && someNode.type != "subflow" && someNode.type != "comment") {
+                node.initiatorNodes.set(someNode.id, {
+                    name: someNode.name,
+                    type: someNode.type
+                });
+            }
+        });
+
         if(node.autoStart) {
             activate();
         }
         else {
             this.status({});
-        }
-      
+        }       
+
         function handleMsgEvent(eventName, msg, nodeId) {
-            console.log("==========> handleMsgEvent for event="+ eventName + " node.id=" + nodeId);
+            //console.log("==========> handleMsgEvent for event="+ eventName + " node.id=" + nodeId);
+            
             // Make sure this code has no impact on the msg sender node
             try {
                 // Only analyze messages that have the specified OutputField property, i.e. which have passed through one of the time profiler nodes
                 if(msg[node.outputField]) {
                     // Only handle messages that are being tracked by this tracking node.  Indeed the tracking node that has initiated the tracking
                     // of this message, is the only node that can append to the msg history.  Because otherwise the multiple hooks would result in duplicate traces.
-                    if(msg[node.outputField].trackingNodeId === node.id) {
+                    if(msg[node.outputField].trackingNode.id === node.id) {
                         var previousTimestampEntry = null;
                         
                         if (msg[node.outputField].trace.length > 0) {
@@ -69,23 +81,32 @@
                         }
                         
                         var now = Date.now();
+                        var nodeInfo = node.initiatorNodes.get(nodeId);
                         
                         // Keep the history of the trace up-to-date
                         msg[node.outputField].trace.push({
                             eventName: eventName,
-                            nodeId: nodeId,
+                            node: {
+                                id: nodeId,
+                                name: nodeInfo.name,
+                                type: nodeInfo.type
+                            },
                             timestamp: now
                         });
                         
                         if(previousTimestampEntry) {
                             // When a node sends an output message, determine the duration the message has spend inside that node.
                             // Which is only possible when we know when the message has been received in that node.
-                            if(eventName === "onSend" && previousTimestampEntry.nodeId === nodeId) {
-                                console.log("==========> adding history for node.id=" + nodeId);
+                            if(eventName === "onSend" && previousTimestampEntry.node.id === nodeId) {
+                                //console.log("==========> adding history for node.id=" + nodeId);
                                                                 
                                 // Calculate the duration in the node that is sending the message now
                                 msg[node.outputField].profile.push({
-                                    nodeId: nodeId,
+                                    node: {
+                                        id: nodeId,
+                                        name: nodeInfo.name,
+                                        type: nodeInfo.type
+                                    },
                                     duration: now - previousTimestampEntry.timestamp
                                 });
                                 
@@ -124,12 +145,23 @@
                         // Only initiator nodes can start adding the specifiet output msg field, to initiate the tracing.
                         // Unless the config mode is 'all', then all nodes can initiate tracing.
                         if(node.profileMode === "all" || node.initiatorNodeIds.includes(nodeId)) {
-                            console.log("==========> Adding new msg field for node.id=" + nodeId + " event=" + eventName);
+                            //console.log("==========> Adding new msg field for node.id=" + nodeId + " event=" + eventName);
+
+                            var nodeInfo = node.initiatorNodes.get(nodeId);
+                            var trackingNodeInfo = node.initiatorNodes.get(node.id);
+  
                             // Start with a clean history, if not a previous one available yet
                             if(!msg[node.outputField]) {
                                 msg[node.outputField] = {
-                                    initiatorNodeId: nodeId,
-                                    trackingNodeId: node.id,
+                                    initiatorNode: {
+                                        id: nodeId,
+                                        name: nodeInfo.name,
+                                        type: nodeInfo.type
+                                    },
+                                    trackingNode: {
+                                        id: node.id,
+                                        name: trackingNodeInfo.name
+                                    },
                                     trace: [],
                                     profile: []
                                 }
@@ -152,14 +184,16 @@
                 // For N outputs, there will be N sendEvent instances.
                 // Handle the output message on every output.
                 sendEvents.forEach(function(sendEvent) {
-                    console.log("==========> onSend for node.id=" + sendEvent.source.node.id);
+                    //console.log("==========> onSend for node.id=" + sendEvent.source.node.id);
+
                     // The (source) node - which sends the message, is important for trailing
                     handleMsgEvent("onSend", sendEvent.msg, sendEvent.source.node.id);
                 });
             });
 
             RED.hooks.add("onReceive.msg-time-profiler-" + node.id, function(receiveEvent) {
-                console.log("==========> onReceive for node.id=" + receiveEvent.destination.node.id);
+                //console.log("==========> onReceive for node.id=" + receiveEvent.destination.node.id);
+                
                 // The (destination) node - which receives the message, is important for trailing 
                 handleMsgEvent("onReceive", receiveEvent.msg, receiveEvent.destination.node.id);
             });
@@ -206,7 +240,6 @@
                     }
                     break;
                 default:
-                    console.log("==========> node.send");
                     // All other messages will be forwarded to the output
                     node.send(msg);
             }
