@@ -23,6 +23,8 @@ Please buy my wife a coffee to keep her happy, while I am busy developing Node-R
 
 ## Node usage
 
+A time profiler will measure how much time a message spends in each node it passes through.
+
 CAUTION: message hooks will result in lots of extra code to be executed, so it is advised to *disable message profiling when you are not using it*!!!
 
 ### Step by step
@@ -41,21 +43,21 @@ CAUTION: message hooks will result in lots of extra code to be executed, so it i
 ### The *_msgtracing* content
 In the following example flow, the msg-profiler node is configured as 'inline' mode.  Which means that the msg-profiler node is inside the flow chain, and will act as an initiator node as soon as the messages pass through it:
 
-![flow with ids](https://user-images.githubusercontent.com/14224149/144306421-c3f678ff-6506-4c57-960b-0fc14b015f90.png)
+![flow with names](https://user-images.githubusercontent.com/14224149/144684665-f1fe7693-75ff-44dd-b4da-5f51648f6ccd.png)
 ```
-[{"id":"6a2692ecfe35a764","type":"function","z":"dd961d75822d1f62","name":"500 msec","func":"setTimeout(function() {\n    node.send(msg);\n}, 500)","outputs":1,"noerr":0,"initialize":"","finalize":"","libs":[],"x":540,"y":2180,"wires":[["cf03a5b2ae5e30fc"]]},{"id":"d4d22ff1881bece6","type":"debug","z":"dd961d75822d1f62","name":"Chain completed","active":true,"tosidebar":true,"console":false,"tostatus":false,"complete":"true","targetType":"full","statusVal":"","statusType":"auto","x":1170,"y":2180,"wires":[]},{"id":"cf03a5b2ae5e30fc","type":"function","z":"dd961d75822d1f62","name":"1000 msec","func":"setTimeout(function() {\n    node.send(msg);\n}, 1000)","outputs":1,"noerr":0,"initialize":"","finalize":"","libs":[],"x":750,"y":2180,"wires":[["b585a6cc51b641a2"]]},{"id":"b585a6cc51b641a2","type":"function","z":"dd961d75822d1f62","name":"1500 msec","func":"setTimeout(function() {\n    node.send(msg);\n}, 1500)","outputs":1,"noerr":0,"initialize":"","finalize":"","libs":[],"x":950,"y":2180,"wires":[["d4d22ff1881bece6"]]},{"id":"4762ee94b7fffca4","type":"inject","z":"dd961d75822d1f62","name":"Inject message","props":[{"p":"payload"}],"repeat":"","crontab":"","once":false,"onceDelay":0.1,"topic":"","payload":"Hello timer","payloadType":"str","x":160,"y":2180,"wires":[["311b7d4594437ff2"]]},{"id":"7ecd8a2fe812e517","type":"comment","z":"dd961d75822d1f62","name":"b585a6cc51b641a2","info":"","x":970,"y":2140,"wires":[]},{"id":"afabbefc4f426cb7","type":"comment","z":"dd961d75822d1f62","name":"cf03a5b2ae5e30fc","info":"","x":770,"y":2140,"wires":[]},{"id":"9a91c5c62d914412","type":"comment","z":"dd961d75822d1f62","name":"6a2692ecfe35a764","info":"","x":570,"y":2140,"wires":[]},{"id":"311b7d4594437ff2","type":"msg-time-profiler","z":"dd961d75822d1f62","inputField":"topic","outputField":"_msgtracing","profileMode":"inline","autoStart":true,"outputs":1,"name":"","x":330,"y":2180,"wires":[["6a2692ecfe35a764"]]},{"id":"1a956d1879d68a1d","type":"comment","z":"dd961d75822d1f62","name":"d4d22ff1881bece6","info":"","x":1170,"y":2140,"wires":[]},{"id":"165c0bda8a6f3411","type":"comment","z":"dd961d75822d1f62","name":"6a2692ecfe35a764","info":"","x":370,"y":2140,"wires":[]}]
+[{"id":"1d8b715f721d6fed","type":"function","z":"dd961d75822d1f62","name":"Node A","func":"setTimeout(function() {\n    node.send(msg);\n}, 500)","outputs":1,"noerr":0,"initialize":"","finalize":"","libs":[],"x":540,"y":3240,"wires":[["ce0c0139dbeeea58"]]},{"id":"ce0c0139dbeeea58","type":"function","z":"dd961d75822d1f62","name":"Node B","func":"setTimeout(function() {\n    node.send(msg);\n}, 1000)","outputs":1,"noerr":0,"initialize":"","finalize":"","libs":[],"x":700,"y":3240,"wires":[["eb57c0ae575d622e"]]},{"id":"51c0e723aef7652d","type":"inject","z":"dd961d75822d1f62","name":"Inject message","props":[{"p":"payload"}],"repeat":"","crontab":"","once":false,"onceDelay":0.1,"topic":"","payload":"Hello timer","payloadType":"str","x":220,"y":3240,"wires":[["821a8a029655639f"]]},{"id":"821a8a029655639f","type":"msg-time-profiler","z":"dd961d75822d1f62","inputField":"topic","outputField":"_msgtracing","profileMode":"inline","autoStart":true,"outputs":1,"name":"","x":390,"y":3240,"wires":[["1d8b715f721d6fed"]]},{"id":"eb57c0ae575d622e","type":"function","z":"dd961d75822d1f62","name":"Node C","func":"setTimeout(function() {\n    node.send(msg);\n}, 1500)","outputs":1,"noerr":0,"initialize":"","finalize":"","libs":[],"x":860,"y":3240,"wires":[["b40c7ffe9b98c220"]]},{"id":"de0b0f503f12baa9","type":"comment","z":"dd961d75822d1f62","name":"500 msec","info":"","x":540,"y":3200,"wires":[]},{"id":"b3081b851780b60f","type":"comment","z":"dd961d75822d1f62","name":"1000 msec","info":"","x":700,"y":3200,"wires":[]},{"id":"c3b104e58cb8be4a","type":"comment","z":"dd961d75822d1f62","name":"1500 msec","info":"","x":860,"y":3200,"wires":[]},{"id":"b40c7ffe9b98c220","type":"debug","z":"dd961d75822d1f62","name":"Chain completed","active":true,"tosidebar":true,"console":false,"tostatus":false,"complete":"true","targetType":"full","statusVal":"","statusType":"auto","x":1050,"y":3240,"wires":[]}]
 ```
-Each function node delays the message with the indicated time interval.  And the comments display the node id's of the corresponding function node.
+Each function node delays the message with the indicated time interval, as displayed with the comments above each node.
 
 At the end, the debug node will show following information:
 
-![output msg](https://user-images.githubusercontent.com/14224149/144307596-85db5788-c4bc-4964-8409-f6ed3a20908b.png)
+![output msg](https://user-images.githubusercontent.com/14224149/144685009-a2be41a0-def0-487f-922f-7bd2fa325e8e.png)
 
 Some explanation about the *_msgtracing* property content:
 + *initiatorNodeId*: id of the initiator node, i.e. the node that has started the message profiling by adding an empty *_msgtracing* property to the message.
 + *trackingNodeId*: id of the msg-profiler node, whose hook has traced the message.
-+ *trace*: an array of events (when the message has been received by a node, and when it has been send by a node).  
-+ *profile*: an array of the time (in milliseconds) that the message has spend in each node it has passed through.  And also the percentage of the time the message has spend in each node.  This information is calculated based on the timestamps in the 'trace' field.
++ *trace*: an array of recorded events (when the message has been received by a node, and when it has been send by a node).  
++ *profile*: an array containing the statistical summary of the recorded events.  In other words the time (in milliseconds) that the message has spend in each node it has passed through.  And also the percentage of the time the message has spend in each node.  This information is calculated based on the timestamps in the 'trace' field.
 + *totalDuration*: the total time (in milliseconds) that the message has spend in all nodes together.
 + *maximumDuration*: the maximum time (in milliseconds) that the message has been spend in one of the nodes.
 + *maximumPercentage*: the maximum percentage of the time that the message has been spend in one of the nodes.
@@ -98,3 +100,15 @@ This msg-profiler node supports different types of profiling modes, which allow 
 3. ***Current flow*** mode: all the nodes in the current flow (where the msg-profile node is located) will become initiator nodes.
 
 4. ***Selected nodes*** mode: select manually which nodes should become initiator nodes.  This is the part that has been copied from the Catch node.  As soon as this mode is selected, a list of all available nodes will be displayed.
+
+## Visualization of profiling results in charts
+
+To simplify the analysis of the profiling results, the output data can easily be transformed to chart data:
+
+![Chart flow](https://user-images.githubusercontent.com/14224149/144685238-a6116185-b1df-44ac-81ec-64a8bcad69d9.png)
+```
+[{"id":"1d8b715f721d6fed","type":"function","z":"dd961d75822d1f62","name":"Node A","func":"setTimeout(function() {\n    node.send(msg);\n}, 500)","outputs":1,"noerr":0,"initialize":"","finalize":"","libs":[],"x":540,"y":3240,"wires":[["ce0c0139dbeeea58"]]},{"id":"ce0c0139dbeeea58","type":"function","z":"dd961d75822d1f62","name":"Node B","func":"setTimeout(function() {\n    node.send(msg);\n}, 1000)","outputs":1,"noerr":0,"initialize":"","finalize":"","libs":[],"x":700,"y":3240,"wires":[["eb57c0ae575d622e"]]},{"id":"51c0e723aef7652d","type":"inject","z":"dd961d75822d1f62","name":"Inject message","props":[{"p":"payload"}],"repeat":"","crontab":"","once":false,"onceDelay":0.1,"topic":"","payload":"Hello timer","payloadType":"str","x":220,"y":3240,"wires":[["821a8a029655639f"]]},{"id":"821a8a029655639f","type":"msg-time-profiler","z":"dd961d75822d1f62","inputField":"topic","outputField":"_msgtracing","profileMode":"inline","autoStart":true,"outputs":1,"name":"","x":390,"y":3240,"wires":[["1d8b715f721d6fed"]]},{"id":"eb57c0ae575d622e","type":"function","z":"dd961d75822d1f62","name":"Node C","func":"setTimeout(function() {\n    node.send(msg);\n}, 1500)","outputs":1,"noerr":0,"initialize":"","finalize":"","libs":[],"x":860,"y":3240,"wires":[["b40c7ffe9b98c220"]]},{"id":"de0b0f503f12baa9","type":"comment","z":"dd961d75822d1f62","name":"500 msec","info":"","x":540,"y":3200,"wires":[]},{"id":"b3081b851780b60f","type":"comment","z":"dd961d75822d1f62","name":"1000 msec","info":"","x":700,"y":3200,"wires":[]},{"id":"c3b104e58cb8be4a","type":"comment","z":"dd961d75822d1f62","name":"1500 msec","info":"","x":860,"y":3200,"wires":[]},{"id":"b40c7ffe9b98c220","type":"debug","z":"dd961d75822d1f62","name":"Chain completed","active":true,"tosidebar":true,"console":false,"tostatus":false,"complete":"true","targetType":"full","statusVal":"","statusType":"auto","x":1050,"y":3240,"wires":[]}]
+```
+In this case the message timing distribution across the 3 function nodes, is being visualize in a ***pie chart*** and a (horizontal) ***bar chart***:
+
+![Charts](https://user-images.githubusercontent.com/14224149/144685552-0a065ca2-2c22-4c50-8d2d-50cce89b1fba.png)
