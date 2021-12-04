@@ -101,9 +101,11 @@ This msg-profiler node supports different types of profiling modes, which allow 
 
 4. ***Selected nodes*** mode: select manually which nodes should become initiator nodes.  This is the part that has been copied from the Catch node.  As soon as this mode is selected, a list of all available nodes will be displayed.
 
-## Visualization of profiling results in charts
+## Visualization of the profiling data
 
-To simplify the analysis of the profiling results, the output data can easily be transformed to chart data:
+### Timing distribution in pie and bar charts
+
+To analyze quickly which node in a (long) chain of nodes is causing the performance issues, the *msg._msgtracing* content can easily be transformed to chart data:
 
 ![Chart flow](https://user-images.githubusercontent.com/14224149/144685238-a6116185-b1df-44ac-81ec-64a8bcad69d9.png)
 ```
@@ -112,3 +114,31 @@ To simplify the analysis of the profiling results, the output data can easily be
 In this case the message timing distribution across the 3 function nodes, is being visualize in a ***pie chart*** and a (horizontal) ***bar chart***:
 
 ![Charts](https://user-images.githubusercontent.com/14224149/144685552-0a065ca2-2c22-4c50-8d2d-50cce89b1fba.png)
+
+This way can see very quickly how the message processing time is distributed, across the node the message has been passing through.
+
+### Timing variations in line charts
+
+To analyze quickly how the processing duration of a single node varies over time, it is easy to show only that duration in a line chart:
+
+![line chart](https://user-images.githubusercontent.com/14224149/144702571-6a354626-fea0-4307-bdf0-7f762149c0fc.png)
+
+In this example flow, the node A delays the messages (that arrive every 500 msec) by 200 msec.  To accomplish that node A uses a ***timer***  with an execution interval of 200 msec.  However the NodeJs event loop needs to handle all other events, which means the timer will not always be executed exactly within 200 msecs.  So there will be some ***timing variations***:
+
+![profiling_a_timer](https://user-images.githubusercontent.com/14224149/144702946-3abb2f81-1dd9-4c81-85c2-f188656d04c8.gif)
+```
+[{"id":"1d8b715f721d6fed","type":"function","z":"dd961d75822d1f62","name":"Node A","func":"setTimeout(function() {\n    node.send(msg);\n}, 200)","outputs":1,"noerr":0,"initialize":"","finalize":"","libs":[],"x":780,"y":1440,"wires":[["0cead2dcef8be5fc"]]},{"id":"51c0e723aef7652d","type":"inject","z":"dd961d75822d1f62","name":"Every 500 msec","props":[{"p":"payload"}],"repeat":"0.5","crontab":"","once":false,"onceDelay":0.1,"topic":"","payload":"Hello timer","payloadType":"str","x":450,"y":1440,"wires":[["821a8a029655639f"]]},{"id":"821a8a029655639f","type":"msg-time-profiler","z":"dd961d75822d1f62","inputField":"topic","outputField":"_msgtracing","profileMode":"inline","autoStart":true,"outputs":1,"name":"","x":630,"y":1440,"wires":[["1d8b715f721d6fed"]]},{"id":"115455802f90b9ac","type":"ui_chart","z":"dd961d75822d1f62","name":"Bar chart","group":"89749fb7.87f01","order":3,"width":"7","height":"6","label":"Msg timing - Line chart","chartType":"line","legend":"true","xformat":"HH:mm:ss","interpolate":"linear","nodata":"","dot":false,"ymin":"190","ymax":"230","removeOlder":1,"removeOlderPoints":"100","removeOlderUnit":"3600","cutout":"30","useOneColor":false,"useUTC":false,"colors":["#1f77b4","#aec7e8","#ff7f0e","#2ca02c","#98df8a","#d62728","#ff9896","#9467bd","#c5b0d5"],"outputs":1,"useDifferentColor":false,"className":"","x":1200,"y":1440,"wires":[[]]},{"id":"0cead2dcef8be5fc","type":"change","z":"dd961d75822d1f62","name":"Extract node A duration","rules":[{"t":"set","p":"payload","pt":"msg","to":"_msgtracing.profile[0].duration","tot":"msg"},{"t":"set","p":"topic","pt":"msg","to":"Timer interval","tot":"str"}],"action":"","property":"","from":"","to":"","reg":false,"x":990,"y":1440,"wires":[["115455802f90b9ac"]]},{"id":"c4a5256c6f27a471","type":"comment","z":"dd961d75822d1f62","name":"Delay timer 200 msec","info":"","x":780,"y":1400,"wires":[]},{"id":"89749fb7.87f01","type":"ui_group","name":"Message Profiler","tab":"d7901f40.2659d","order":2,"disp":true,"width":"16","collapse":false,"className":""},{"id":"d7901f40.2659d","type":"ui_tab","name":"Charts","icon":"dashboard","order":40,"disabled":false,"hidden":false}]
+```
+
+The more your system has to do, the bigger the timing variations will become...
+
+## Extra use cases
+
+### Trigger an alarm for long processing times
+
+When dealing with critical flows, it might be useful to ***monitor the timing durations***.  And trigger an alarm when a performance issue is detected.
+
+Two metrics in the `msg._msgtracing` of the output message might be useful for this purpose:
++ *totalDuration*: if the total processing time of an entire chain of nodes should not exceed some threshold.
++ *maximumDuration*: if the maximum processing time of any node (in the entire chain of nodes) should not exceed some threshold.
++ *maximumPercentage*: similar to maximumDuration, but now with a threshold percentage.
