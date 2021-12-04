@@ -65,8 +65,6 @@
         }       
 
         function handleMsgEvent(eventName, msg, nodeId) {
-            //console.log("==========> handleMsgEvent for event="+ eventName + " node.id=" + nodeId);
-            
             // Make sure this code has no impact on the msg sender node
             try {
                 // Only analyze messages that have the specified OutputField property, i.e. which have passed through one of the time profiler nodes
@@ -75,61 +73,68 @@
                     // of this message, is the only node that can append to the msg history.  Because otherwise the multiple hooks would result in duplicate traces.
                     if(msg[node.outputField].trackingNode.id === node.id) {
                         var previousTimestampEntry = null;
-                        
-                        if (msg[node.outputField].trace.length > 0) {
-                            previousTimestampEntry = msg[node.outputField].trace[msg[node.outputField].trace.length - 1];
-                        }
+                        var trace = msg[node.outputField].trace;
                         
                         var now = Date.now();
                         var nodeInfo = node.initiatorNodes.get(nodeId);
                         
-                        // Keep the history of the trace up-to-date
-                        msg[node.outputField].trace.push({
-                            eventName: eventName,
-                            node: {
-                                id: nodeId,
-                                name: nodeInfo.name,
-                                type: nodeInfo.type
-                            },
-                            timestamp: now
-                        });
+                        // Keep the history of the trace up-to-date, by registering the new event.
+                        // Note that sometimes (e.g. same msg instance sended on multiple outputs) we need to avoid to have duplicate event traces in a sequence.
+                        // A normal sequence is: onSend -> onReceive -> onSend -> onReceive -> ...
+                        if(trace.length == 0 || trace[trace.length - 1].eventName != eventName) {
+                            trace.push({
+                                eventName: eventName,
+                                node: {
+                                    id: nodeId,
+                                    name: nodeInfo.name,
+                                    type: nodeInfo.type
+                                },
+                                timestamp: now
+                            });
                         
-                        if(previousTimestampEntry) {
-                            // When a node sends an output message, determine the duration the message has spend inside that node.
-                            // Which is only possible when we know when the message has been received in that node.
-                            if(eventName === "onSend" && previousTimestampEntry.node.id === nodeId) {
-                                //console.log("==========> adding history for node.id=" + nodeId);
-                                                                
-                                // Calculate the duration in the node that is sending the message now
-                                msg[node.outputField].profile.push({
-                                    node: {
-                                        id: nodeId,
-                                        name: nodeInfo.name,
-                                        type: nodeInfo.type
-                                    },
-                                    duration: now - previousTimestampEntry.timestamp
-                                });
-                                
-                                msg[node.outputField].totalDuration = 0;
-                                msg[node.outputField].maximumDuration = 0;
-                                
-                                msg[node.outputField].profile.forEach(function(currentElement) {
-                                    // Calculate the total time being spend by this message in all the profiled nodes so far.
-                                    msg[node.outputField].totalDuration += currentElement.duration;
-                                    
-                                    // Calculate the maximum time this message has been spend in all of the nodes it has passed
-                                    msg[node.outputField].maximumDuration = Math.max(msg[node.outputField].maximumDuration, currentElement.duration);
-                                });
-                                
-                                msg[node.outputField].maximumPercentage = 0;
+                            // When an onSend event has been added to the trace, try to calculate the processing duration
+                            if (trace.length > 1) {
+                                var lastTraceEntry = trace[trace.length - 1];
+                                var previousTraceEntry = trace[trace.length - 2];
 
-                                msg[node.outputField].profile.forEach(function(currentElement) {
-                                    // Calculate the percentage of the time being spend in all the profiled nodes so far
-                                    currentElement.percentage = Math.round(currentElement.duration / msg[node.outputField].totalDuration * 100);
-                                    
-                                    // Calculate the maximum percentage of time this message has been spend in all of the nodes it has passed
-                                    msg[node.outputField].maximumPercentage = Math.max(msg[node.outputField].maximumPercentage, currentElement.percentage);
-                                });
+                                if(lastTraceEntry.eventName == "onSend" && previousTraceEntry.eventName == "onReceive") {
+                                    // When a node sends an output message, determine the duration the message has spend inside that node.
+                                    // Which is only possible when we know when the message has been received in that node.
+                                    if(previousTraceEntry.node.id === nodeId) {
+                                        //console.log("==========> adding history for node.id=" + nodeId);
+                                                                        
+                                        // Calculate the duration in the node that is sending the message now
+                                        msg[node.outputField].profile.push({
+                                            node: {
+                                                id: nodeId,
+                                                name: nodeInfo.name,
+                                                type: nodeInfo.type
+                                            },
+                                            duration: now - previousTraceEntry.timestamp
+                                        });
+                                        
+                                        msg[node.outputField].totalDuration = 0;
+                                        msg[node.outputField].maximumDuration = 0;
+                                        
+                                        msg[node.outputField].profile.forEach(function(currentElement) {
+                                            // Calculate the total time being spend by this message in all the profiled nodes so far.
+                                            msg[node.outputField].totalDuration += currentElement.duration;
+                                            
+                                            // Calculate the maximum time this message has been spend in all of the nodes it has passed
+                                            msg[node.outputField].maximumDuration = Math.max(msg[node.outputField].maximumDuration, currentElement.duration);
+                                        });
+                                        
+                                        msg[node.outputField].maximumPercentage = 0;
+
+                                        msg[node.outputField].profile.forEach(function(currentElement) {
+                                            // Calculate the percentage of the time being spend in all the profiled nodes so far
+                                            currentElement.percentage = Math.round(currentElement.duration / msg[node.outputField].totalDuration * 100);
+                                            
+                                            // Calculate the maximum percentage of time this message has been spend in all of the nodes it has passed
+                                            msg[node.outputField].maximumPercentage = Math.max(msg[node.outputField].maximumPercentage, currentElement.percentage);
+                                        });
+                                    }
+                                }
                             }
                         }
                     }
@@ -181,19 +186,14 @@
             // When the time profiler becomes active, both hooks need to registered
 
             RED.hooks.add("onSend.msg-time-profiler-" + node.id, function(sendEvents) {
-                // For N outputs, there will be N sendEvent instances.
-                // Handle the output message on every output.
+                // The sendEvents is an array for all the messages that are being passed to node.send([...]).
                 sendEvents.forEach(function(sendEvent) {
-                    //console.log("==========> onSend for node.id=" + sendEvent.source.node.id);
-
                     // The (source) node - which sends the message, is important for trailing
                     handleMsgEvent("onSend", sendEvent.msg, sendEvent.source.node.id);
                 });
             });
 
             RED.hooks.add("onReceive.msg-time-profiler-" + node.id, function(receiveEvent) {
-                //console.log("==========> onReceive for node.id=" + receiveEvent.destination.node.id);
-                
                 // The (destination) node - which receives the message, is important for trailing 
                 handleMsgEvent("onReceive", receiveEvent.msg, receiveEvent.destination.node.id);
             });
