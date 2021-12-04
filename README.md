@@ -136,7 +136,9 @@ The more your system has to do, the bigger the timing variations will become...
 
 ### Trigger an alarm for long processing times
 
-When dealing with critical flows, it might be useful to ***monitor the timing durations***.  And trigger an alarm when a performance issue is detected.
+When dealing with critical flows, it might be useful to ***monitor the timing durations***.  And trigger an alarm when a performance issue is detected:
+
+![Threshold](https://user-images.githubusercontent.com/14224149/144703350-6261a8e4-22e1-4e45-b33e-26e92d991afd.png)
 
 Two metrics in the `msg._msgtracing` of the output message might be useful for this purpose:
 + *totalDuration*: if the total processing time of an entire chain of nodes should not exceed some threshold.
