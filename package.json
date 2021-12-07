@@ -22,7 +22,7 @@
         "nodes"
     ],   
     "bugs": {
-        "url": "https://github.com/bartbutenaers/node-red-contrib-drawsvg/issues"
+        "url": "https://github.com/bartbutenaers/node-red-contrib-msg-profiler/issues"
     },
     "homepage": "https://github.com/bartbutenaers/node-red-contrib-msg-profiler",
     "repository": {
